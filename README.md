@@ -162,7 +162,5 @@ Contributions, ideas, and feedback are welcome!
 
 ---
 
-## 🔗 Demo / Showcase
 
-(Optional: add Streamlit Cloud link or video demo here)
 
