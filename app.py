@@ -18,8 +18,8 @@ from utils import (
 
 st.set_page_config(
     layout="centered",
-    page_title="Fake News Checker",
-    page_icon="\U0001F4F1",
+    page_title="TRUTHX",
+    page_icon="\U0001F5DE",
 )
 
 
@@ -146,110 +146,183 @@ def rating_tone(rating_text: str) -> str:
     return "uncertain"
 
 
+def combine_fake_scores(p_fake_ml: float, fc: dict) -> tuple[float, float, float | None]:
+    ml_weight = 0.6
+    fact_weight = 0.4
+
+    if fc.get("count", 0) <= 0:
+        return p_fake_ml, ml_weight, None
+
+    fc_score_raw = float(fc.get("score", 0.0))
+    fc_score_norm = max(0.0, min(1.0, (fc_score_raw + 1.0) / 2.0))
+    combined = (ml_weight * p_fake_ml) + (fact_weight * fc_score_norm)
+    return max(0.0, min(1.0, combined)), ml_weight, fc_score_norm
+
+
 st.markdown(
     """
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+
 :root {
-  --bg-a: #fbfbff;
-  --bg-b: #f3f7ff;
-  --bg-c: #fdf4fb;
-  --card: rgba(255, 255, 255, 0.92);
-  --card-border: #e7e9f4;
-  --text: #1f2430;
-  --muted: #687086;
-  --accent-a: #abd7ff;
-  --accent-b: #f5c5e3;
-  --accent-c: #d8e8ff;
-  --fake-bg: #ffe1de;
-  --fake-border: #ffb7af;
-  --real-bg: #ddf7ea;
-  --real-border: #9ddfc3;
-  --uncertain-bg: #ffeecf;
-  --uncertain-border: #f6d38a;
+  --paper: #f5f0e8;
+  --ink: #1a1a1a;
+  --accent: #e8341c;
+  --muted: #8a8070;
+  --panel: #efe8dc;
+  --line: #1a1a1a;
+  --fake: #e8341c;
+  --real: #2f7d4a;
+  --uncertain: #b17400;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #171411;
+    --ink: #f2ebdf;
+    --muted: #b2a796;
+    --panel: #211d19;
+    --line: #f2ebdf;
+    --real: #5bb878;
+    --uncertain: #e0a93d;
+  }
 }
 
 html, body, [data-testid="stAppViewContainer"] {
-  background:
-    radial-gradient(900px 520px at 0% -10%, #f5f7ff 0%, transparent 70%),
-    radial-gradient(900px 520px at 100% -5%, #fef3fb 0%, transparent 68%),
-    linear-gradient(180deg, var(--bg-a), var(--bg-b) 55%, var(--bg-c));
-  color: var(--text);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Space Mono", monospace;
 }
 
 .main .block-container {
-  max-width: 520px;
-  padding-top: 0.8rem;
-  padding-bottom: 1rem;
+  max-width: 980px;
+  padding-top: 1rem;
+  padding-bottom: 1.5rem;
 }
 
 [data-testid="stSidebar"] { display: none; }
 
 .card {
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-radius: 20px;
-  padding: 12px;
-  margin-bottom: 10px;
-  box-shadow: 0 8px 24px rgba(69, 77, 104, 0.08);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.masthead {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-end;
+  border-bottom: 3px solid var(--line);
+  padding: 0 0 14px;
+  margin-bottom: 18px;
+}
+
+.brand-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .hero-title {
-  text-align: center;
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: 0.2px;
-  margin-bottom: 2px;
+  margin: 0;
+  font-family: "Syne", sans-serif;
+  font-size: clamp(2.2rem, 6vw, 4.4rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hero-title .accent {
+  color: var(--accent);
 }
 
 .hero-sub {
-  text-align: center;
-  font-size: 0.88rem;
+  margin: 0;
   color: var(--muted);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.beta-stamp {
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  padding: 6px 10px;
+  font-family: "Syne", sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 .section-title {
-  font-size: 0.93rem;
-  font-weight: 700;
-  margin-bottom: 7px;
-  color: var(--text);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  margin-bottom: 10px;
+  color: var(--muted);
+}
+
+.counter {
+  text-align: right;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 8px;
 }
 
 .stTextArea textarea {
-  border-radius: 16px !important;
-  border: 1px solid #d8deef !important;
-  background: #f9fbff !important;
-  color: var(--text) !important;
-  padding: 12px !important;
-  min-height: 120px !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--line) !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  padding: 14px !important;
+  min-height: 150px !important;
+  font-family: "Space Mono", monospace !important;
+  line-height: 1.55 !important;
 }
 
 .stTextArea textarea::placeholder {
-  color: #7f88a3 !important;
+  color: var(--muted) !important;
 }
 
 .stButton > button[kind="primary"] {
   width: 100%;
-  border: 0;
-  border-radius: 999px;
-  padding: 0.68rem 1rem;
-  font-weight: 700;
-  color: #1f2430;
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0.9rem 1rem;
+  color: var(--paper);
+  background: var(--ink);
+  font-family: "Syne", sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 .stButton > button[kind="secondary"] {
   width: 100%;
   border-radius: 999px;
-  border: 1px solid #d9deef;
+  border: 1px solid var(--line);
   padding: 0.44rem 0.55rem;
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: #374058;
-  background: var(--accent-c);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stButton > button:hover {
+  color: var(--paper);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .result-wrap {
-  text-align: center;
+  text-align: left;
 }
 
 .verdict-badge {
@@ -257,51 +330,60 @@ html, body, [data-testid="stAppViewContainer"] {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 0.95rem;
+  padding: 7px 12px;
+  font-family: "Syne", sans-serif;
+  font-size: 0.82rem;
   font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #fff;
   margin-bottom: 8px;
+  text-transform: uppercase;
 }
 
 .verdict-badge.fake {
-  background: var(--fake-bg);
-  border: 1px solid var(--fake-border);
+  background: var(--fake);
+  border: 1px solid var(--fake);
 }
 
 .verdict-badge.real {
-  background: var(--real-bg);
-  border: 1px solid var(--real-border);
+  background: var(--real);
+  border: 1px solid var(--real);
 }
 
 .verdict-badge.uncertain {
-  background: var(--uncertain-bg);
-  border: 1px solid var(--uncertain-border);
+  background: var(--uncertain);
+  border: 1px solid var(--uncertain);
 }
 
 .prob-label {
   font-size: 0.79rem;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
 .prob-value {
-  font-size: 2.25rem;
+  font-family: "Syne", sans-serif;
+  font-size: 2.8rem;
   line-height: 1.05;
   font-weight: 800;
-  color: var(--text);
+  color: var(--ink);
 }
 
 .progress-track {
   width: 100%;
-  height: 10px;
-  border-radius: 999px;
-  background: #e8ecf8;
+  height: 14px;
+  border-radius: 0;
+  border: 1px solid var(--line);
+  background: transparent;
   overflow: hidden;
   margin-top: 8px;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  background: var(--fake);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .threshold-note {
@@ -312,27 +394,30 @@ html, body, [data-testid="stAppViewContainer"] {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
 }
 
 .kpi {
-  border-radius: 14px;
-  border: 1px solid #e2e7f5;
-  background: #fbfcff;
-  padding: 9px;
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 14px 10px;
+  min-height: 110px;
 }
 
 .kpi-label {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 .kpi-value {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-top: 2px;
+  font-family: "Syne", sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 18px;
 }
 
 .tiny-wrap {
@@ -362,22 +447,26 @@ html, body, [data-testid="stAppViewContainer"] {
 .tiny-track {
   width: 100%;
   height: 7px;
-  border-radius: 999px;
+  border-radius: 0;
   overflow: hidden;
-  background: #e9edf8;
+  background: transparent;
+  border: 1px solid var(--line);
   margin-bottom: 4px;
 }
 
 .tiny-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  background: var(--accent);
 }
 
 .explain-col-title {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-family: "Syne", sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
   color: var(--muted);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .chip-wrap {
@@ -388,33 +477,31 @@ html, body, [data-testid="stAppViewContainer"] {
 
 .chip {
   border-radius: 999px;
-  padding: 4px 9px;
+  padding: 6px 10px;
   font-size: 0.76rem;
-  border: 1px solid #e1e6f4;
-  background: #f8faff;
+  border: 1px solid var(--line);
+  background: transparent;
 }
 
-.chip-fake { background: #ffeceb; }
-.chip-real { background: #e9f9f1; }
+.chip-fake { border-color: var(--fake); color: var(--fake); }
+.chip-real { border-color: var(--real); color: var(--real); }
 .chip-score { opacity: 0.85; font-weight: 700; }
 .chip-empty { font-size: 0.78rem; color: var(--muted); }
 
 .preview {
-  border-radius: 14px;
-  border: 1px solid #e1e6f4;
-  background: #fafcff;
-  padding: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 14px;
   line-height: 1.4;
   font-size: 0.88rem;
   white-space: pre-wrap;
 }
 
 .alert {
-  border-radius: 12px;
-  border: 1px solid #f0cf8f;
-  background: #fff5df;
-  color: #7d5b1f;
-  padding: 10px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  padding: 12px;
   font-size: 0.84rem;
   margin-bottom: 10px;
 }
@@ -435,29 +522,29 @@ html, body, [data-testid="stAppViewContainer"] {
 .fact-summary {
   font-size: 0.86rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--ink);
   margin-bottom: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .fact-source-card {
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid #e2e7f5;
-  border-left-width: 5px;
-  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 12px;
   margin-bottom: 8px;
 }
 
 .fact-source-card.fake {
-  border-left-color: #ff8f85;
+  border-color: var(--fake);
 }
 
 .fact-source-card.real {
-  border-left-color: #7ed0ac;
+  border-color: var(--real);
 }
 
 .fact-source-card.uncertain {
-  border-left-color: #f0bf62;
+  border-color: var(--uncertain);
 }
 
 .fact-source-name {
@@ -470,7 +557,7 @@ html, body, [data-testid="stAppViewContainer"] {
 .fact-source-rating {
   font-size: 0.93rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--ink);
   margin-bottom: 8px;
 }
 
@@ -483,8 +570,23 @@ html, body, [data-testid="stAppViewContainer"] {
   padding: 6px 10px;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #2f3f64;
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  color: var(--paper);
+  background: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .masthead {
+    display: block;
+  }
+
+  .beta-stamp {
+    display: inline-block;
+    margin-top: 12px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>
 """,
@@ -493,19 +595,24 @@ html, body, [data-testid="stAppViewContainer"] {
 
 if "post_text" not in st.session_state:
     st.session_state.post_text = ""
+if "has_analyzed" not in st.session_state:
+    st.session_state.has_analyzed = False
 
 st.markdown(
     """
-<div class="card">
-  <div class="hero-title">Fake News Checker</div>
-  <div class="hero-sub">Pastel AI demo for style-based misinformation signals</div>
+<div class="masthead">
+  <div class="brand-wrap">
+    <div class="hero-title">TRUTH<span class="accent">X</span></div>
+    <div class="hero-sub">Misinformation Signal Detector</div>
+  </div>
+  <div class="beta-stamp">Beta</div>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
 st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown("<div class='section-title'>Input</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-title'>Claim To Analyze</div>", unsafe_allow_html=True)
 
 ex1, ex2, ex3 = st.columns(3)
 if ex1.button("Sensational", type="secondary"):
@@ -528,10 +635,16 @@ text = st.text_area(
     "",
     key="post_text",
     label_visibility="collapsed",
-    placeholder="Paste caption, tweet, or post text...",
+    placeholder="Paste a claim, headline, post, or article excerpt...",
+)
+char_count = len(text)
+st.markdown(
+    f"<div class='counter'>{char_count} character{'s' if char_count != 1 else ''}</div>",
+    unsafe_allow_html=True,
 )
 
-check_clicked = st.button("Check Post", type="primary")
+button_label = "→ RE-ANALYZE" if st.session_state.has_analyzed else "→ ANALYZE"
+check_clicked = st.button(button_label, type="primary")
 st.markdown("</div>", unsafe_allow_html=True)
 
 if check_clicked:
@@ -547,20 +660,13 @@ if check_clicked:
         )
 
     else:
+        st.session_state.has_analyzed = True
         p_fake_ml = predict(text)[1]
 
         with st.spinner("Checking external sources..."):
             fc = run_fact_check(text)
 
-        if fc.get("count", 0) > 0:
-            fc_score_raw = float(fc.get("score", 0.0))
-            fc_score_norm = (fc_score_raw + 1.0) / 2.0
-            fc_score_norm = max(0.0, min(1.0, fc_score_norm))
-            p_fake_combined = 0.6 * p_fake_ml + 0.4 * fc_score_norm
-        else:
-            p_fake_combined = p_fake_ml
-
-        p_fake_combined = max(0.0, min(1.0, p_fake_combined))
+        p_fake_combined, ml_weight, fc_score_norm = combine_fake_scores(p_fake_ml, fc)
         verdict = verdict_from_prob(p_fake_combined)
         p_fake = p_fake_combined
 
@@ -575,7 +681,7 @@ if check_clicked:
         badge_class, badge_text = badge_map.get(verdict, ("uncertain", verdict))
 
         st.markdown('<div class="card result-wrap">', unsafe_allow_html=True)
-        st.markdown("<div class='section-title'>Result</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>Verdict</div>", unsafe_allow_html=True)
         st.markdown(
             f"<div class='verdict-badge {badge_class}'>{badge_text}</div>",
             unsafe_allow_html=True,
@@ -594,17 +700,28 @@ if check_clicked:
             f"<div class='threshold-note'>REAL <= {int(THR_REAL * 100)}% | FAKE >= {int(THR_FAKE * 100)}%</div>",
             unsafe_allow_html=True,
         )
+        if fc_score_norm is None:
+            score_note = f"Combined score = ML only ({p_fake_ml * 100:.1f}%)"
+        else:
+            score_note = (
+                f"Combined score = ML {int(ml_weight * 100)}% + external fact check {int((1.0 - ml_weight) * 100)}%"
+                f" ({fc_score_norm * 100:.1f}%)"
+            )
+        st.markdown(
+            f"<div class='threshold-note'>{html.escape(score_note)}</div>",
+            unsafe_allow_html=True,
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("<div class='section-title'>Vibe</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>Signal Metrics</div>", unsafe_allow_html=True)
         st.markdown(
             f"""
 <div class="kpi-grid">
-  <div class="kpi"><div class="kpi-label">sensational_score</div><div class="kpi-value">{metrics['sensational_score']:.2f}</div></div>
-  <div class="kpi"><div class="kpi-label">uppercase ratio</div><div class="kpi-value">{metrics['upper_ratio']:.2f}</div></div>
-  <div class="kpi"><div class="kpi-label">exclamation count</div><div class="kpi-value">{metrics['exclam']}</div></div>
-  <div class="kpi"><div class="kpi-label">emotional words</div><div class="kpi-value">{metrics['emo_hits']}</div></div>
+  <div class="kpi"><div class="kpi-value">{metrics['sensational_score']:.2f}</div><div class="kpi-label">Sensational Score</div></div>
+  <div class="kpi"><div class="kpi-value">{metrics['upper_ratio']:.2f}</div><div class="kpi-label">Uppercase Ratio</div></div>
+  <div class="kpi"><div class="kpi-value">{metrics['exclam']}</div><div class="kpi-label">Exclaim! Count</div></div>
+  <div class="kpi"><div class="kpi-value">{metrics['emo_hits']}</div><div class="kpi-label">Emotional Words</div></div>
 </div>
 """,
             unsafe_allow_html=True,
@@ -642,21 +759,34 @@ if check_clicked:
         st.markdown("<div class='section-title'>External Fact Check</div>", unsafe_allow_html=True)
         if not fc.get("enabled", False):
             st.markdown(
-                "<div class='fact-meta'>Google Fact Check API is not configured.</div>",
+                f"<div class='fact-meta'>{html.escape(fc.get('message', 'Google Fact Check API is not configured.'))}</div>",
+                unsafe_allow_html=True,
+            )
+        elif not fc.get("query"):
+            st.markdown(
+                f"<div class='fact-meta'>{html.escape(fc.get('message', 'No strong factual claim detected for external verification.'))}</div>",
                 unsafe_allow_html=True,
             )
         elif fc.get("count", 0) == 0:
             st.markdown(
-                f"<div class='fact-meta'>Query: <b>{html.escape(fc.get('claim', ''))}</b></div>",
+                f"<div class='fact-meta'>Query used: <b>{html.escape(fc.get('query', ''))}</b></div>",
                 unsafe_allow_html=True,
             )
             st.markdown(
-                "<div class='fact-meta'>No matching fact-check sources found.</div>",
+                f"<div class='fact-meta'>Sources found: {int(fc.get('count', 0))}</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"<div class='fact-meta'>{html.escape(fc.get('message', 'No matching fact-check sources found.'))}</div>",
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
-                f"<div class='fact-meta'>Query: <b>{html.escape(fc.get('claim', ''))}</b></div>",
+                f"<div class='fact-meta'>Query used: <b>{html.escape(fc.get('query', ''))}</b></div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"<div class='fact-meta'>Sources found: {int(fc.get('count', 0))}</div>",
                 unsafe_allow_html=True,
             )
             st.markdown(
@@ -686,6 +816,6 @@ if check_clicked:
         st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown(
-    "<div class='footer'>Disclaimer: This tool predicts writing-style patterns, not factual truth.</div>",
+    "<div class='footer'>Analyzes writing-style signals + external fact check sources · Not a substitute for editorial judgment</div>",
     unsafe_allow_html=True,
 )

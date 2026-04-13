@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRUTHX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f5f0e8;
+      --ink: #1a1a1a;
+      --accent: #e8341c;
+      --muted: #8a8070;
+      --line: #1a1a1a;
+      --panel: #efe8dc;
+      --green: #2f7d4a;
+      --amber: #b17400;
+      --gray: #7c7468;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #171411;
+        --ink: #f2ebdf;
+        --muted: #b2a796;
+        --line: #f2ebdf;
+        --panel: #211d19;
+        --green: #5bb878;
+        --amber: #e0a93d;
+        --gray: #8f877d;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Space Mono", monospace;
+    }
+
+    .page {
+      width: min(1080px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      padding-bottom: 16px;
+      border-bottom: 3px solid var(--line);
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      margin: 0;
+      font-family: "Syne", sans-serif;
+      font-size: clamp(2.2rem, 5vw, 4.5rem);
+      line-height: 0.95;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .logo-x {
+      color: var(--accent);
+    }
+
+    .tagline {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .beta-stamp {
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      padding: 6px 10px;
+      font-family: "Syne", sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .section {
+      padding: 18px 0;
+      border-bottom: 1px solid rgba(26, 26, 26, 0.18);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .section {
+        border-bottom-color: rgba(242, 235, 223, 0.18);
+      }
+    }
+
+    .label {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    input,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    .api-input,
+    .claim-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink);
+      padding: 12px 14px;
+      outline: none;
+    }
+
+    .api-input::placeholder,
+    .claim-input::placeholder {
+      color: var(--muted);
+    }
+
+    .claim-tools {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .preset-btn,
+    .token-pill,
+    .rating-pill {
+      border-radius: 999px;
+    }
+
+    .preset-btn {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink);
+      padding: 7px 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .claim-input {
+      min-height: 170px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+
+    .claim-meta {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .analyze-btn {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--ink);
+      color: var(--paper);
+      padding: 14px 16px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-family: "Syne", sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .analyze-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .analyze-btn:disabled {
+      opacity: 0.8;
+      cursor: wait;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(245, 240, 232, 0.35);
+      border-top-color: var(--paper);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    .analyze-btn.loading .spinner {
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .results {
+      display: none;
+      padding-top: 20px;
+    }
+
+    .results.visible {
+      display: block;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .verdict-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 12px;
+      font-family: "Syne", sans-serif;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-size: 0.82rem;
+      color: #fff;
+      background: var(--gray);
+      min-width: 128px;
+    }
+
+    .verdict-badge.fake {
+      background: var(--accent);
+    }
+
+    .verdict-badge.real {
+      background: var(--green);
+    }
+
+    .verdict-badge.uncertain {
+      background: var(--amber);
+    }
+
+    .verdict-badge.scanning {
+      background: var(--gray);
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: 92px 1fr 60px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.86rem;
+    }
+
+    .score-track {
+      position: relative;
+      height: 14px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      width: 0;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .score-fill.fake {
+      background: var(--accent);
+    }
+
+    .score-fill.real {
+      background: var(--green);
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      padding: 14px 10px;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .metric-value {
+      font-family: "Syne", sans-serif;
+      font-size: clamp(1.7rem, 3vw, 2.4rem);
+      line-height: 1;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .explanation-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .explain-box {
+      border: 1px solid var(--line);
+      padding: 14px;
+      min-height: 108px;
+    }
+
+    .explain-title {
+      margin: 0 0 10px;
+      font-family: "Syne", sans-serif;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .token-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .token-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      font-size: 0.75rem;
+    }
+
+    .token-pill.fake {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .token-pill.real {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .muted-note {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .external-meta {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .fact-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .fact-item {
+      border: 1px solid var(--line);
+      padding: 12px;
+      background: transparent;
+    }
+
+    .fact-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .rating-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      font-family: "Syne", sans-serif;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #fff;
+      background: var(--gray);
+    }
+
+    .rating-pill.false {
+      background: var(--accent);
+    }
+
+    .rating-pill.true {
+      background: var(--green);
+    }
+
+    .rating-pill.mixed {
+      background: var(--amber);
+    }
+
+    .fact-publisher {
+      color: var(--muted);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .fact-claim {
+      margin: 0;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .footer {
+      padding-top: 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: center;
+      text-transform: none;
+    }
+
+    @media (max-width: 820px) {
+      .metrics-grid,
+      .explanation-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .header,
+      .panel-header,
+      .fact-top {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+
+      .brand {
+        gap: 8px;
+      }
+
+      .metrics-grid,
+      .explanation-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .score-row {
+        grid-template-columns: 78px 1fr 52px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div class="brand">
+        <h1 class="logo">TRUTH<span class="logo-x">X</span></h1>
+        <p class="tagline">Misinformation Signal Detector</p>
+      </div>
+      <div class="beta-stamp">Beta</div>
+    </header>
+
+    <section class="section">
+      <label class="label" for="apiKey">API KEY</label>
+      <input id="apiKey" class="api-input" type="password" placeholder="AIza..." autocomplete="off">
+    </section>
+
+    <section class="section">
+      <label class="label" for="claimInput">CLAIM TO ANALYZE</label>
+      <div class="claim-tools">
+        <button class="preset-btn" data-preset="sensational" type="button">Sensational</button>
+        <button class="preset-btn" data-preset="institutional" type="button">Institutional</button>
+        <button class="preset-btn" data-preset="ambiguous" type="button">Ambiguous</button>
+      </div>
+      <textarea id="claimInput" class="claim-input" placeholder="Paste a claim, headline, post, or article excerpt..."></textarea>
+      <div class="claim-meta">
+        <span id="charCounter">0 characters</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <button id="analyzeBtn" class="analyze-btn" type="button">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="analyzeLabel">→ Analyze</span>
+      </button>
+    </section>
+
+    <section id="results" class="results">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Verdict</h2>
+          <div id="verdictBadge" class="verdict-badge scanning">Scanning</div>
+        </div>
+
+        <div class="score-row">
+          <span>FAKE %</span>
+          <div class="score-track"><div id="fakeBar" class="score-fill fake"></div></div>
+          <strong id="fakePct">0%</strong>
+        </div>
+        <div class="score-row">
+          <span>REAL %</span>
+          <div class="score-track"><div id="realBar" class="score-fill real"></div></div>
+          <strong id="realPct">0%</strong>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Signal Metrics</h2>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric">
+            <div id="metricSensational" class="metric-value">0.00</div>
+            <div class="metric-label">Sensational Score</div>
+          </div>
+          <div class="metric">
+            <div id="metricUpper" class="metric-value">0.00</div>
+            <div class="metric-label">Uppercase Ratio</div>
+          </div>
+          <div class="metric">
+            <div id="metricExclaim" class="metric-value">0</div>
+            <div class="metric-label">Exclaim! Count</div>
+          </div>
+          <div class="metric">
+            <div id="metricEmotion" class="metric-value">0</div>
+            <div class="metric-label">Emotional Words</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Explanation</h2>
+        </div>
+        <div class="explanation-grid">
+          <div class="explain-box">
+            <h3 class="explain-title">Pushes Fake</h3>
+            <div id="fakeTokens" class="token-list"></div>
+          </div>
+          <div class="explain-box">
+            <h3 class="explain-title">Pushes Real</h3>
+            <div id="realTokens" class="token-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">External Fact Check</h2>
+        </div>
+        <div id="externalMeta" class="external-meta"></div>
+        <div id="factList" class="fact-list"></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Analyzes writing-style signals + external fact check sources · Not a substitute for editorial judgment
+    </footer>
+  </main>
+
+  <script>
+    const sensationalWords = [
+      "cure", "cures", "miracle", "secret", "shocking", "destroy", "exposed",
+      "hoax", "lie", "lies", "fake", "fraud", "proof", "truth", "hidden", "they",
+      "government", "big pharma", "must", "urgent", "breaking", "alert"
+    ];
+
+    const emotionalWords = [
+      "amazing", "terrible", "horrible", "evil", "disgusting", "outrage",
+      "scandal", "worst", "best", "never", "always", "everyone", "nobody"
+    ];
+
+    const realSignalWords = [
+      "report", "official", "published", "data", "study", "statement",
+      "according", "agency", "annual", "methods", "references", "authority",
+      "confirmed", "documented", "announced", "evidence"
+    ];
+
+    const presets = {
+      sensational: "BREAKING!!! Secret miracle cure exposed!!! They don't want you to know this hidden truth about big pharma!!!",
+      institutional: "The public health authority published an annual report with methods, references, and updated vaccination data.",
+      ambiguous: "People are debating this story online, but the post does not clearly state a factual claim."
+    };
+
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const analyzeLabel = document.getElementById("analyzeLabel");
+    const claimInput = document.getElementById("claimInput");
+    const apiKeyInput = document.getElementById("apiKey");
+    const charCounter = document.getElementById("charCounter");
+    const resultsEl = document.getElementById("results");
+    const verdictBadge = document.getElementById("verdictBadge");
+    const fakeBar = document.getElementById("fakeBar");
+    const realBar = document.getElementById("realBar");
+    const fakePct = document.getElementById("fakePct");
+    const realPct = document.getElementById("realPct");
+    const metricSensational = document.getElementById("metricSensational");
+    const metricUpper = document.getElementById("metricUpper");
+    const metricExclaim = document.getElementById("metricExclaim");
+    const metricEmotion = document.getElementById("metricEmotion");
+    const fakeTokens = document.getElementById("fakeTokens");
+    const realTokens = document.getElementById("realTokens");
+    const externalMeta = document.getElementById("externalMeta");
+    const factList = document.getElementById("factList");
+
+    let hasAnalyzed = false;
+
+    function updateCounter() {
+      const count = claimInput.value.length;
+      charCounter.textContent = `${count} character${count === 1 ? "" : "s"}`;
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function tokenize(text) {
+      return (text.toLowerCase().match(/[a-z0-9']+/g) || []);
+    }
+
+    function countUppercaseRatio(text) {
+      const letters = [...text].filter((char) => /[a-z]/i.test(char));
+      if (!letters.length) return 0;
+      const uppercase = letters.filter((char) => char === char.toUpperCase()).length;
+      return uppercase / letters.length;
+    }
+
+    function countMatches(text, phrases) {
+      const lowered = text.toLowerCase();
+      return phrases.filter((phrase) => lowered.includes(phrase)).length;
+    }
+
+    function detectTokens(text, sourceWords) {
+      const lowered = text.toLowerCase();
+      return sourceWords.filter((word) => lowered.includes(word)).slice(0, 8);
+    }
+
+    function truncateClaim(text, max = 120) {
+      const clean = text.trim();
+      if (clean.length <= max) return clean;
+      return `${clean.slice(0, max - 1).trimEnd()}…`;
+    }
+
+    function setLoadingState(isLoading) {
+      analyzeBtn.disabled = isLoading;
+      analyzeBtn.classList.toggle("loading", isLoading);
+      verdictBadge.className = "verdict-badge scanning";
+      verdictBadge.textContent = isLoading ? "Scanning" : verdictBadge.textContent;
+    }
+
+    function setVerdict(verdict) {
+      const key = verdict.toLowerCase();
+      verdictBadge.className = `verdict-badge ${key}`;
+      verdictBadge.textContent = verdict;
+    }
+
+    function setBar(barEl, labelEl, value) {
+      const pct = Math.round(value * 100);
+      barEl.style.width = `${pct}%`;
+      labelEl.textContent = `${pct}%`;
+    }
+
+    function renderTokenList(container, tokens, type) {
+      if (!tokens.length) {
+        container.innerHTML = '<span class="muted-note">none detected</span>';
+        return;
+      }
+      container.innerHTML = tokens
+        .map((token) => `<span class="token-pill ${type}">${escapeHtml(token)}</span>`)
+        .join("");
+    }
+
+    function ratingClass(rating) {
+      const r = rating.toLowerCase();
+      if (r.includes("false") || r.includes("incorrect") || r.includes("pants on fire") || r.includes("misleading")) {
+        return "false";
+      }
+      if (r.includes("true") || r.includes("correct")) {
+        return "true";
+      }
+      return "mixed";
+    }
+
+    function ratingToFakeScore(rating) {
+      const r = rating.toLowerCase();
+      if (r.includes("pants on fire") || r.includes("false")) return 1.0;
+      if (r.includes("mostly false")) return 0.75;
+      if (r.includes("half true")) return 0.5;
+      if (r.includes("mostly true")) return 0.25;
+      if (r.includes("misleading")) return 0.85;
+      if (r.includes("incorrect")) return 0.9;
+      if (r.includes("true") || r.includes("correct")) return 0.0;
+      return 0.5;
+    }
+
+    function buildMetrics(text) {
+      const words = tokenize(text);
+      const totalWordCount = Math.max(words.length, 1);
+      const sensationalMatches = countMatches(text, sensationalWords);
+      const emotionalMatches = countMatches(text, emotionalWords);
+      const uppercaseRatio = countUppercaseRatio(text);
+      const exclamationCount = (text.match(/!/g) || []).length;
+      const sensationalScore = sensationalMatches / totalWordCount;
+
+      let fakeProbML = 0.3
+        + sensationalMatches * 0.12
+        + uppercaseRatio * 0.4
+        + Math.min(exclamationCount * 0.08, 0.3)
+        + emotionalMatches * 0.08;
+
+      if (text.trim().length < 20) {
+        fakeProbML = 0.4;
+      }
+
+      fakeProbML = Math.max(0, Math.min(1, fakeProbML));
+
+      return {
+        sensationalMatches,
+        emotionalMatches,
+        uppercaseRatio,
+        exclamationCount,
+        sensationalScore,
+        fakeProbML,
+        fakeTokens: detectTokens(text, [...sensationalWords, ...emotionalWords]),
+        realTokens: detectTokens(text, realSignalWords)
+      };
+    }
+
+    async function fetchFactChecks(claim, apiKey) {
+      if (!apiKey.trim()) {
+        return { mode: "missing-key", results: [], externalScore: null };
+      }
+
+      const params = new URLSearchParams({
+        query: claim,
+        key: apiKey.trim(),
+        pageSize: "3"
+      });
+
+      try {
+        const response = await fetch(`https://factchecktools.googleapis.com/v1alpha1/claims:search?${params.toString()}`);
+        if (!response.ok) {
+          return { mode: "error", results: [], externalScore: null };
+        }
+
+        const data = await response.json();
+        const claims = Array.isArray(data.claims) ? data.claims : [];
+        const results = claims
+          .map((claimItem) => {
+            const review = Array.isArray(claimItem.claimReview) ? claimItem.claimReview[0] : null;
+            if (!review) return null;
+            const rating = review.textualRating || "Mixed";
+            return {
+              rating,
+              publisher: review.publisher?.name || "Unknown Publisher",
+              claim: claimItem.text || "",
+              fakeScore: ratingToFakeScore(rating)
+            };
+          })
+          .filter(Boolean)
+          .slice(0, 3);
+
+        if (!results.length) {
+          return { mode: "no-results", results: [], externalScore: null };
+        }
+
+        const externalScore = results.reduce((sum, item) => sum + item.fakeScore, 0) / results.length;
+        return { mode: "results", results, externalScore };
+      } catch (error) {
+        return { mode: "error", results: [], externalScore: null };
+      }
+    }
+
+    function renderExternalSection(claim, factData) {
+      if (factData.mode === "missing-key") {
+        externalMeta.innerHTML = '<div>Add API key to enable external fact checks</div>';
+        factList.innerHTML = "";
+        return;
+      }
+
+      if (factData.mode === "no-results") {
+        externalMeta.innerHTML = `<div>Query: ${escapeHtml(claim)}</div><div>No existing fact checks found for this claim</div>`;
+        factList.innerHTML = "";
+        return;
+      }
+
+      if (factData.mode === "error") {
+        externalMeta.innerHTML = `<div>Query: ${escapeHtml(claim)}</div><div>External fact check request failed</div>`;
+        factList.innerHTML = "";
+        return;
+      }
+
+      externalMeta.innerHTML = `<div>Query: ${escapeHtml(claim)}</div><div>${factData.results.length} source(s) found</div>`;
+      factList.innerHTML = factData.results
+        .map((item) => `
+          <article class="fact-item">
+            <div class="fact-top">
+              <span class="rating-pill ${ratingClass(item.rating)}">${escapeHtml(item.rating)}</span>
+              <span class="fact-publisher">${escapeHtml(item.publisher)}</span>
+            </div>
+            <p class="fact-claim">${escapeHtml(truncateClaim(item.claim))}</p>
+          </article>
+        `)
+        .join("");
+    }
+
+    async function analyzeClaim() {
+      const claim = claimInput.value.trim();
+      if (!claim) {
+        claimInput.focus();
+        return;
+      }
+
+      resultsEl.classList.add("visible");
+      setLoadingState(true);
+      setBar(fakeBar, fakePct, 0);
+      setBar(realBar, realPct, 0);
+
+      const metrics = buildMetrics(claim);
+
+      metricSensational.textContent = metrics.sensationalScore.toFixed(2);
+      metricUpper.textContent = metrics.uppercaseRatio.toFixed(2);
+      metricExclaim.textContent = String(metrics.exclamationCount);
+      metricEmotion.textContent = String(metrics.emotionalMatches);
+
+      renderTokenList(fakeTokens, metrics.fakeTokens, "fake");
+      renderTokenList(realTokens, metrics.realTokens, "real");
+
+      const factData = await fetchFactChecks(claim, apiKeyInput.value);
+
+      let finalScore = metrics.fakeProbML;
+      if (typeof factData.externalScore === "number") {
+        finalScore = metrics.fakeProbML * 0.4 + factData.externalScore * 0.6;
+      }
+
+      finalScore = Math.max(0, Math.min(1, finalScore));
+      const realScore = 1 - finalScore;
+
+      let verdict = "UNCERTAIN";
+      if (finalScore >= 0.65) verdict = "FAKE";
+      else if (finalScore <= 0.35) verdict = "REAL";
+
+      setVerdict(verdict);
+      setBar(fakeBar, fakePct, finalScore);
+      setBar(realBar, realPct, realScore);
+      renderExternalSection(claim, factData);
+
+      hasAnalyzed = true;
+      analyzeLabel.textContent = hasAnalyzed ? "→ Re-Analyze" : "→ Analyze";
+      setLoadingState(false);
+    }
+
+    claimInput.addEventListener("input", updateCounter);
+    analyzeBtn.addEventListener("click", analyzeClaim);
+
+    document.querySelectorAll("[data-preset]").forEach((button) => {
+      button.addEventListener("click", () => {
+        claimInput.value = presets[button.dataset.preset] || "";
+        updateCounter();
+      });
+    });
+
+    updateCounter();
+  </script>
+</body>
+</html>

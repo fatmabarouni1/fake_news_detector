@@ -7,45 +7,181 @@ import urllib.request
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_FACT_CHECK_API_KEY", "").strip()
 
+MAX_QUERY_CHARS = 180
+MIN_QUERY_WORDS = 5
+MIN_QUERY_CHARS = 24
 
-def extract_claim(text: str, max_words: int = 8) -> str:
-    """
-    Extract simple keywords from the input text for API lookup.
-    """
-    stop_words = {
-        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could",
-        "should", "may", "might", "shall", "and", "or", "but", "in", "on",
-        "at", "to", "for", "of", "with", "by", "from", "this", "that", "these",
-        "those", "it", "its", "we", "they", "he", "she", "you", "i", "my", "our",
-        "le", "la", "les", "un", "une", "des", "est", "sont", "et", "ou", "en",
-        "du", "de", "que", "qui", "se", "ce", "il", "elle", "ils", "elles",
-        "just", "also", "very", "more", "some", "about", "after", "before",
-        "now", "new", "say", "said", "says", "know", "want", "get", "make",
-    }
+HYPE_WORDS = {
+    "breaking",
+    "shocking",
+    "urgent",
+    "exclusive",
+    "miracle",
+    "secret",
+    "must-see",
+    "share",
+    "viral",
+}
 
-    text = re.sub(r"[!?#@]", " ", text)
-    text = re.sub(r"https?://\S+", " ", text)
+STOP_WORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could",
+    "should", "may", "might", "shall", "and", "or", "but", "in", "on",
+    "at", "to", "for", "of", "with", "by", "from", "this", "that", "these",
+    "those", "it", "its", "we", "they", "he", "she", "you", "i", "my", "our",
+    "your", "their", "them", "his", "her", "as", "if", "then", "than", "into",
+    "about", "after", "before", "just", "also", "very", "more", "some", "such",
+    "now", "new", "say", "said", "says", "know", "want", "get", "make", "made",
+    "call", "called", "calls", "calling", "claim", "claims", "claimed",
+    "report", "reported", "reports", "post", "posted", "posts", "video",
+    "watch", "read", "check", "please", "people", "users", "everyone",
+    "le", "la", "les", "un", "une", "des", "est", "sont", "et", "ou", "en",
+    "du", "de", "que", "qui", "se", "ce", "cet", "cette", "il", "elle", "ils",
+    "elles", "sur", "dans", "pour", "avec", "sans", "plus", "moins", "tres",
+    "trop", "mais", "donc", "car", "pas", "comme", "aux", "par", "leur",
+}
 
-    freq = {}
-    for word in text.lower().split():
-        word = re.sub(r"[^a-z]", "", word)
-        if word and word not in stop_words and len(word) > 3:
-            freq[word] = freq.get(word, 0) + 1
+FALSE_KEYWORDS = {
+    "false",
+    "fake",
+    "incorrect",
+    "misleading",
+    "wrong",
+    "debunked",
+    "misinformation",
+    "inaccurate",
+    "faux",
+    "trompeur",
+    "errone",
+}
 
-    keywords = sorted(freq, key=freq.get, reverse=True)
-    return " ".join(keywords[:max_words])
+TRUE_KEYWORDS = {
+    "true",
+    "correct",
+    "accurate",
+    "verified",
+    "confirmed",
+    "vrai",
+    "exact",
+    "verifie",
+    "confirme",
+}
+
+
+def limit_query_length(text: str, max_chars: int = MAX_QUERY_CHARS) -> str:
+    text = " ".join(text.split()).strip(" ,;:-")
+    if len(text) <= max_chars:
+        return text
+
+    truncated = text[:max_chars].rsplit(" ", 1)[0].strip(" ,;:-")
+    return truncated or text[:max_chars].strip(" ,;:-")
+
+
+def normalize_claim_text(text: str) -> str:
+    text = str(text or "")
+    text = re.sub(r"https?://\S+|www\.\S+", " ", text)
+    text = re.sub(r"@\w+|#\w+", " ", text)
+    text = re.sub(r"[_*~`\"“”‘’]+", " ", text)
+    text = re.sub(r"\b(?:%s)\b" % "|".join(re.escape(word) for word in HYPE_WORDS), " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"[!?]{2,}", ". ", text)
+    text = re.sub(r"\.{2,}", ". ", text)
+    text = re.sub(r"\s*[-–—]\s*", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip(" .,:;-")
+
+
+def tokenize_informative_words(text: str) -> list[str]:
+    words = []
+    for token in re.findall(r"[A-Za-zÀ-ÿ0-9']+", text.lower()):
+        if len(token) <= 2:
+            continue
+        if token in STOP_WORDS:
+            continue
+        words.append(token)
+    return words
+
+
+def sentence_score(sentence: str) -> tuple[int, int, int]:
+    informative = tokenize_informative_words(sentence)
+    unique_count = len(set(informative))
+    informative_count = len(informative)
+    length_score = min(len(sentence), MAX_QUERY_CHARS)
+    return (unique_count, informative_count, length_score)
+
+
+def extract_best_sentence(text: str) -> str:
+    normalized = normalize_claim_text(text)
+    if not normalized:
+        return ""
+
+    parts = re.split(r"(?<=[.!?])\s+|\n+", normalized)
+    candidates = []
+    for part in parts:
+        sentence = part.strip(" .,:;-")
+        if not sentence:
+            continue
+        informative_count = len(tokenize_informative_words(sentence))
+        if informative_count < MIN_QUERY_WORDS:
+            continue
+        candidates.append(limit_query_length(sentence))
+
+    if not candidates:
+        return ""
+
+    return max(candidates, key=sentence_score)
+
+
+def compress_keywords(text: str, max_words: int = 14) -> str:
+    normalized = normalize_claim_text(text)
+    if not normalized:
+        return ""
+
+    seen = set()
+    compressed = []
+    for token in re.findall(r"[A-Za-zÀ-ÿ0-9']+", normalized):
+        lowered = token.lower()
+        if len(lowered) <= 2 or lowered in STOP_WORDS:
+            continue
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        compressed.append(token)
+        if len(compressed) >= max_words:
+            break
+
+    return limit_query_length(" ".join(compressed))
+
+
+def build_fact_check_query(text: str) -> str:
+    best_sentence = extract_best_sentence(text)
+    if best_sentence:
+        return best_sentence
+
+    return compress_keywords(text, max_words=16)
+
+
+def build_fact_check_candidates(text: str) -> list[tuple[str, str]]:
+    candidates = []
+    for strategy, query in [
+        ("best_sentence", build_fact_check_query(text)),
+        ("keyword_compressed", compress_keywords(text, max_words=14)),
+    ]:
+        query = limit_query_length(query)
+        if len(query) < MIN_QUERY_CHARS:
+            continue
+        if len(tokenize_informative_words(query)) < MIN_QUERY_WORDS:
+            continue
+        if any(existing_query == query for _, existing_query in candidates):
+            continue
+        candidates.append((strategy, query))
+        if len(candidates) == 2:
+            break
+    return candidates
 
 
 def query_fact_check_api(
     query: str, api_key: str = GOOGLE_API_KEY, max_results: int = 5
 ):
-    """
-    Query the Google Fact Check Tools API.
-    Returns:
-    - None when the API key is not configured
-    - [] on request failures or when there are no claims
-    """
     if not api_key:
         return None
 
@@ -81,37 +217,7 @@ def query_fact_check_api(
     return results
 
 
-FALSE_KEYWORDS = {
-    "false",
-    "fake",
-    "incorrect",
-    "misleading",
-    "wrong",
-    "debunked",
-    "misinformation",
-    "inaccurate",
-    "faux",
-    "trompeur",
-    "errone",
-}
-
-TRUE_KEYWORDS = {
-    "true",
-    "correct",
-    "accurate",
-    "verified",
-    "confirmed",
-    "vrai",
-    "exact",
-    "verifie",
-    "confirme",
-}
-
-
 def external_credibility_score(results: list) -> dict:
-    """
-    Summarize fact-check reviews into a coarse external credibility score.
-    """
     if not results:
         return {
             "score": 0.0,
@@ -156,25 +262,68 @@ def external_credibility_score(results: list) -> dict:
 
 
 def run_fact_check(text: str) -> dict:
-    """
-    End-to-end lookup used by the Streamlit app.
-    """
-    claim = extract_claim(text)
-    results = query_fact_check_api(claim)
-
-    if results is None:
+    if not GOOGLE_API_KEY:
         return {
             "enabled": False,
-            "claim": claim,
+            "query": "",
+            "query_strategy": "",
+            "attempted_queries": [],
             "score": 0.0,
             "verdict": "API NOT CONFIGURED",
             "sources": [],
             "count": 0,
+            "message": "Google Fact Check API is not configured.",
         }
 
-    credibility = external_credibility_score(results)
+    candidates = build_fact_check_candidates(text)
+    if not candidates:
+        return {
+            "enabled": True,
+            "query": "",
+            "query_strategy": "",
+            "attempted_queries": [],
+            "score": 0.0,
+            "verdict": "NO QUERY",
+            "sources": [],
+            "count": 0,
+            "message": "No strong factual claim detected for external verification.",
+        }
+
+    attempted_queries = []
+    for strategy, query in candidates:
+        attempted_queries.append(query)
+        results = query_fact_check_api(query)
+        if results is None:
+            return {
+                "enabled": False,
+                "query": "",
+                "query_strategy": "",
+                "attempted_queries": attempted_queries,
+                "score": 0.0,
+                "verdict": "API NOT CONFIGURED",
+                "sources": [],
+                "count": 0,
+                "message": "Google Fact Check API is not configured.",
+            }
+        if results:
+            credibility = external_credibility_score(results)
+            return {
+                "enabled": True,
+                "query": query,
+                "query_strategy": strategy,
+                "attempted_queries": attempted_queries,
+                **credibility,
+                "message": "",
+            }
+
     return {
         "enabled": True,
-        "claim": claim,
-        **credibility,
+        "query": candidates[0][1],
+        "query_strategy": candidates[0][0],
+        "attempted_queries": attempted_queries,
+        "score": 0.0,
+        "verdict": "NOT FOUND",
+        "sources": [],
+        "count": 0,
+        "message": "No matching fact-check sources found.",
     }
