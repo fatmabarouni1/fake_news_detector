@@ -4,8 +4,13 @@ import re
 import urllib.parse
 import urllib.request
 
+import streamlit as st
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_FACT_CHECK_API_KEY", "").strip()
+
+GOOGLE_API_KEY = st.secrets.get(
+    "GOOGLE_FACT_CHECK_API_KEY",
+    os.getenv("GOOGLE_FACT_CHECK_API_KEY", ""),
+).strip()
 
 MAX_QUERY_CHARS = 180
 MIN_QUERY_WORDS = 5
