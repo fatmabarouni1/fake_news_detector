@@ -56,7 +56,3 @@ streamlit run app.py
 ```bash
 python train.py
 ```
-
-## Suggested LinkedIn Description
-
-Built a Streamlit-based fake news detection prototype using TF-IDF, Logistic Regression, handcrafted text features, and optional Google Fact Check API integration. Developed as an academic project to explore misinformation detection workflows and basic model explainability.
